@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>MCQ Quiz by NIT Goa under NAIP</title>
+<title>MCQ Quiz · AI, ML, Deep Learning & Related Topics</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -174,6 +174,20 @@
   @media (prefers-reduced-motion: reduce){
     *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
   }
+
+  /* ---------- Extra-small phones ---------- */
+  @media (max-width:400px){
+    .screen{ padding:16px 10px; }
+    .landing-card{ padding:26px 20px 22px; }
+    .results-card{ padding:28px 22px; }
+    .question-card{ padding:22px 18px; }
+    .q-text{ font-size:1.12rem; }
+    .exam-header{ padding:10px 12px; }
+    .exam-body{ padding:18px 12px 70px; }
+    .nav-row{ flex-wrap:wrap; }
+    .nav-row .btn{ padding:11px 16px; font-size:.86rem; }
+    .stat-row{ gap:14px; }
+  }
 </style>
 </head>
 <body>
@@ -189,8 +203,8 @@
         <text x="32" y="41" text-anchor="middle" font-family="Source Serif 4, serif" font-size="11" font-weight="700" fill="#2F5C58">DL</text>
       </svg>
       <div>
-        <h1>Foundations and Advances in Deep Learning and Generative AI : Theory to Practice</h1>
-        <div class="sub">Multiple Choice Question (MCQ) Quiz</div>
+        <h1>AI, Machine Learning &amp; Deep Learning</h1>
+        <div class="sub">Multiple Choice Question (MCQ) Quiz &middot; Related Topics</div>
       </div>
     </div>
 
@@ -202,7 +216,8 @@
     </div>
 
     <div class="notice">
-      <span>This is a timed, proctored exam. The countdown starts the moment you click <strong>Begin Exam</strong> and cannot be paused. Right-click, text selection, and copy/paste are disabled for the duration of the test. Switching tabs is recorded.</span>
+      <span>&#9888;</span>
+      <span>This is a timed, proctored exam. The countdown starts the moment you click <strong>Begin Exam</strong> and cannot be paused. Right-click, text selection, and copy/paste are disabled for the duration of the test. Switching tabs is recorded. <em>*30-minute duration carried over from the source format — confirm with your instructor if a different time limit applies.</em></span>
     </div>
 
     <hr>
@@ -323,6 +338,8 @@
       <div><div class="num" id="res-answered">0/50</div><div class="lbl">Answered</div></div>
       <div><div class="num" id="res-time">00:00</div><div class="lbl">Time Taken</div></div>
     </div>
+    <button class="btn btn-primary btn-full" id="download-btn">Download my responses (.csv)</button>
+    <p style="font-size:.76rem; margin-top:14px;">Keep this file as your submission record until results are announced.</p>
   </div>
 </div>
 
@@ -333,13 +350,24 @@
   "use strict";
 
   /* ============ CONFIG ============
-     If your instructor has deployed the companion Google Apps Script
-     (see Code.gs provided alongside this file) as a Web App, paste the
-     deployment URL below. Responses will then also be written to a
-     Google Sheet automatically, in addition to the local CSV download
-     that always happens on submit. Leave blank to skip this and rely
-     on the CSV download only. */
-  const ENDPOINT_URL = "https://script.google.com/macros/s/AKfycby9Rxmfg9_pzywWOGZ7CLR8thsLUGgJCwXuwRW-zmhMK5NvIDB9keNqcWJSRx05GDRriw/exec";
+     ───────────────────────────────────────────────────────────────
+     STEP REQUIRED BEFORE GOING LIVE:
+     Deploy the companion Code.gs (see that file's header comment for
+     the exact steps) as a Google Apps Script Web App, copy the
+     deployment URL it gives you, and paste it between the quotes
+     below. Responses will then be written to a Google Sheet
+     automatically, IN ADDITION to the local CSV download that always
+     happens on submit (so the CSV remains a backup either way).
+
+     Leave this blank only if you intend to collect responses solely
+     via the CSV file each student downloads — no server needed.
+     ───────────────────────────────────────────────────────────────
+  */
+  const ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbxOTgjikBkevMt5LPEOdHoDVaSy-JnM2bJ5DN-8a1Ybz_Iu_SK9kPRvUl_66RwYEveB/exec";
+
+  if (!ENDPOINT_URL){
+    console.warn('[Exam] ENDPOINT_URL is blank — responses will only be saved as a local CSV download, not to a Google Sheet. See the CONFIG block in this file (or Code.gs) to wire up Google Sheets submission.');
+  }
 
   const TOTAL_SECONDS = 30 * 60;
 
@@ -530,7 +558,7 @@
     errEl.style.display = ok ? 'none' : 'block';
     return ok;
   }
-  el('begin-btn').addEventListener('click', () => {
+  function attemptBegin(){
     const okName = validateField(el('f-name'), el('err-name'), v => v.length > 1);
     const okRoll = validateField(el('f-roll'), el('err-roll'), v => v.length > 1);
     const okEmail = validateField(el('f-email'), el('err-email'), v => /\S+@\S+\.\S+/.test(v));
@@ -539,6 +567,13 @@
     state.roll = el('f-roll').value.trim();
     state.email = el('f-email').value.trim();
     startExam();
+  }
+  el('begin-btn').addEventListener('click', attemptBegin);
+  // Let mobile users hit "Go"/"Enter" on the keyboard instead of having to tap the button.
+  ['f-name','f-roll','f-email'].forEach(id => {
+    el(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter'){ e.preventDefault(); attemptBegin(); }
+    });
   });
 
   function startExam(){
@@ -685,26 +720,21 @@
     el('res-time').textContent = m + ':' + s;
 
     const payload = buildPayload(elapsedSec, timedOut);
+    el('download-btn').addEventListener('click', () => downloadCsv(payload));
+    // auto-download once immediately so a record exists even if the student closes the tab
+    try { downloadCsv(payload); }
+    catch (err) { toast('Auto-download was blocked — tap "Download my responses" below.'); }
 
-    if (ENDPOINT_URL) {
-        fetch(ENDPOINT_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "text/plain;charset=UTF-8"
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(response => response.text())
-        .then(data => {
-            console.log("Submission successful:", data);
-            toast("Responses submitted successfully.");
-        })
-        .catch(error => {
-            console.error(error);
-            toast("Submission failed. Please check your internet connection.");
-        });
+    if (ENDPOINT_URL){
+      fetch(ENDPOINT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify(payload)
+      }).catch(() => { toast('Could not reach the server — your CSV download is your backup record.'); });
     }
-    
+  }
+
   function buildPayload(elapsedSec, timedOut){
     const score = state.answers.reduce((sum, a, i) => sum + (a !== null && a === ANSWER_KEY[i] ? 1 : 0), 0);
     return {
