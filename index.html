@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>MCQ Quiz by NIT Goa under NAIP</title>
+<title>MCQ Quiz · AI, ML, Deep Learning & Related Topics</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -203,20 +203,21 @@
         <text x="32" y="41" text-anchor="middle" font-family="Source Serif 4, serif" font-size="11" font-weight="700" fill="#2F5C58">DL</text>
       </svg>
       <div>
-        <h1>Foundations and Advances in Deep Learning and Generative AI : Theory to Practice</h1>
-        <div class="sub">Multiple Choice Question (MCQ) Quiz</div>
+        <h1>AI, Machine Learning &amp; Deep Learning</h1>
+        <div class="sub">Multiple Choice Question (MCQ) Quiz &middot; Related Topics</div>
       </div>
     </div>
 
     <div class="meta-strip">
       <span>50 marks</span>
       <span>50 questions</span>
-      <span>30 minutes</span>
+      <span>30 minutes*</span>
       <span>1 mark each</span>
     </div>
 
     <div class="notice">
-      <span>This is a timed, proctored exam. The countdown starts the moment you click <strong>Begin Exam</strong> and cannot be paused. Right-click, text selection, and copy/paste are disabled for the duration of the test. Switching tabs is recorded.</span>
+      <span>&#9888;</span>
+      <span>This is a timed, proctored exam. The countdown starts the moment you click <strong>Begin Exam</strong> and cannot be paused. Right-click, text selection, and copy/paste are disabled for the duration of the test. Switching tabs is recorded. <em>*30-minute duration carried over from the source format — confirm with your instructor if a different time limit applies.</em></span>
     </div>
 
     <hr>
@@ -357,13 +358,13 @@
      distributed to students until this URL is filled in and tested.
      ───────────────────────────────────────────────────────────────
   */
-   const ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbxOTgjikBkevMt5LPEOdHoDVaSy-JnM2bJ5DN-8a1Ybz_Iu_SK9kPRvUl_66RwYEveB/exec";
+  const ENDPOINT_URL = "";
 
   if (!ENDPOINT_URL){
     console.warn('[Exam] ENDPOINT_URL is blank — submissions will NOT be saved anywhere. Set this before distributing the exam to students.');
   }
 
-  const TOTAL_SECONDS = 45 * 60;
+  const TOTAL_SECONDS = 40 * 60;
 
   /* ============ QUESTION BANK ============ */
   const QUESTIONS = [
@@ -480,6 +481,7 @@
   const state = {
     name:"", roll:"", email:"",
     answers:new Array(QUESTIONS.length).fill(null),
+    optionOrder:[], // per question: array of original option indices in the shuffled display order shown to this candidate
     current:0,
     startedAt:null,
     secondsLeft:TOTAL_SECONDS,
@@ -570,11 +572,32 @@
     });
   });
 
+  /* ============ OPTION SHUFFLE ============
+     Each candidate gets their own random display order for each
+     question's options, generated once at exam start and kept fixed
+     for the rest of their attempt. This discourages students sitting
+     near each other from copying by matching option letters/positions —
+     "B" for one candidate may be "D" for another. Internally we still
+     always track answers by the option's ORIGINAL index, so scoring
+     against ANSWER_KEY and the data sent to the server are unaffected. */
+  function shuffledIndices(n){
+    const arr = Array.from({length:n}, (_, i) => i);
+    for (let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+  function buildOptionOrder(){
+    state.optionOrder = QUESTIONS.map(q => shuffledIndices(q.o.length));
+  }
+
   function startExam(){
     landingScreen.classList.add('hidden');
     quizScreen.classList.remove('hidden');
     el('header-roll').textContent = state.name + ' · ' + state.roll;
     applyWatermark(state.roll);
+    buildOptionOrder();
     buildOmr();
     state.startedAt = Date.now();
     renderQuestion(0);
@@ -617,12 +640,14 @@
 
     const opts = el('q-options');
     opts.innerHTML = '';
-    q.o.forEach((optText, i) => {
+    const order = state.optionOrder[idx]; // array of original option indices, in this candidate's shuffled display order
+    order.forEach(origIndex => {
+      const optText = q.o[origIndex];
       const div = document.createElement('div');
-      div.className = 'option' + (state.answers[idx] === i ? ' selected' : '');
+      div.className = 'option' + (state.answers[idx] === origIndex ? ' selected' : '');
       div.innerHTML = '<span class="dot"></span><span class="otext' + (q.code ? ' mono' : '') + '"></span>';
       div.querySelector('.otext').textContent = optText;
-      div.addEventListener('click', () => selectAnswer(idx, i));
+      div.addEventListener('click', () => selectAnswer(idx, origIndex));
       opts.appendChild(div);
     });
 
