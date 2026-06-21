@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>MCQ Quiz · AI, ML, Deep Learning & Related Topics</title>
+<title>MCQ Quiz by NIT Goa for MIT-WPU students under NAIP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -203,8 +203,8 @@
         <text x="32" y="41" text-anchor="middle" font-family="Source Serif 4, serif" font-size="11" font-weight="700" fill="#2F5C58">DL</text>
       </svg>
       <div>
-        <h1>AI, Machine Learning &amp; Deep Learning</h1>
-        <div class="sub">Multiple Choice Question (MCQ) Quiz &middot; Related Topics</div>
+        <h1>Foundation and Advances in Deep Learning and Generative AI : Theory to Practice</h1>
+        <div class="sub">Multiple Choice Question (MCQ) Quiz</div>
       </div>
     </div>
 
@@ -217,7 +217,7 @@
 
     <div class="notice">
       <span>&#9888;</span>
-      <span>This is a timed, proctored exam. The countdown starts the moment you click <strong>Begin Exam</strong> and cannot be paused. Right-click, text selection, and copy/paste are disabled for the duration of the test. <strong>Switching tabs or apps is not allowed</strong> — it is detected, and your exam will be <strong>automatically submitted</strong> after <span id="meta-max-switches">3</span> such attempts.</span>
+      <span>This is a timed, proctored exam. The countdown starts the moment you click <strong>Begin Exam</strong> and cannot be paused. Right-click, text selection, and copy/paste are disabled for the duration of the test. <strong>Switching tabs or apps is not allowed.</strong>If detected your exam will be <strong>automatically submitted</strong>.</span>
     </div>
 
     <hr>
@@ -358,14 +358,14 @@
      distributed to students until this URL is filled in and tested.
      ───────────────────────────────────────────────────────────────
   */
-  const ENDPOINT_URL = "";
+  const ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbxOTgjikBkevMt5LPEOdHoDVaSy-JnM2bJ5DN-8a1Ybz_Iu_SK9kPRvUl_66RwYEveB/exec";
 
   if (!ENDPOINT_URL){
     console.warn('[Exam] ENDPOINT_URL is blank — submissions will NOT be saved anywhere. Set this before distributing the exam to students.');
   }
 
   const TOTAL_SECONDS = 40 * 60;
-  const MAX_TAB_SWITCHES = 3; // exam auto-submits once this many tab/app switches are detected
+  const MAX_TAB_SWITCHES = 2; // exam auto-submits once this many tab/app switches are detected
 
   /* ============ QUESTION BANK ============ */
   const QUESTIONS = [
