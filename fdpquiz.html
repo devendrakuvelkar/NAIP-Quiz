@@ -216,7 +216,7 @@
     </div>
 
     <div class="notice">
-      <span>This is a timed, proctored exam. The countdown starts the moment you click <strong>Begin Exam</strong> and cannot be paused. Right-click, text selection, and copy/paste are disabled for the duration of the test. <strong>Switching tabs or apps is not allowed.</strong> If detected your exam will be <strong>automatically submitted</strong>.</span>
+      <span>This is a timed, proctored exam. The countdown starts the moment you click <strong>Begin Exam</strong> and cannot be paused. Right-click, text selection, and copy/paste are disabled for the duration of the test. The exam runs in <strong>fullscreen</strong> where supported. <strong>Switching tabs/apps or exiting fullscreen is not allowed</strong> — each attempt is detected, and your exam will be <strong>automatically submitted</strong> after a small number of such attempts.</span>
     </div>
 
     <hr>
@@ -228,12 +228,12 @@
     </div>
     <div class="field">
       <label for="f-roll">Roll No.</label>
-      <input id="f-roll" type="text" autocomplete="off" placeholder="Your MIT-WPU Registration No.">
+      <input id="f-roll" type="text" autocomplete="off" placeholder="e.g. BT22CS045">
       <div class="err" id="err-roll">Please enter your roll number.</div>
     </div>
     <div class="field">
       <label for="f-email">Email</label>
-      <input id="f-email" type="email" autocomplete="off" placeholder="abc@gmail.com">
+      <input id="f-email" type="email" autocomplete="off" placeholder="you@example.edu">
       <div class="err" id="err-email">Please enter a valid email.</div>
     </div>
 
@@ -357,14 +357,14 @@
      distributed to students until this URL is filled in and tested.
      ───────────────────────────────────────────────────────────────
   */
-  const ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbxlQVb48OiFtdcPgDkZUGmr-4lXHICN3BvtxWfJZooE3alxB-oY2SpM3cc65PKrwHLC/exec";
+  const ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbxQNY76If6DYcHFPyPOoHHvpHHEpt6DEMRGKIgSb1PQPUdqpihUaODMIUqM-oblSCq0/exec";
 
   if (!ENDPOINT_URL){
     console.warn('[Exam] ENDPOINT_URL is blank — submissions will NOT be saved anywhere. Set this before distributing the exam to students.');
   }
 
-  const TOTAL_SECONDS = 30 * 60;
-  const MAX_TAB_SWITCHES = 3; // exam auto-submits once this many tab/app switches are detected
+  const TOTAL_SECONDS = 40 * 60;
+  const MAX_TAB_SWITCHES = 2; // exam auto-submits once this many tab/app switches are detected
 
   /* ============ QUESTION BANK ============ */
   const QUESTIONS = [
@@ -445,6 +445,8 @@
     startedAt:null,
     secondsLeft:TOTAL_SECONDS,
     tabSwitches:0,
+    lastViolationAt:0,        // debounce: one physical action (e.g. Alt-Tab) can fire both visibilitychange and fullscreenchange
+    pendingViolationToast:null, // queued message to show once the tab becomes visible again
     submitted:false,
     timerHandle:null
   };
@@ -492,15 +494,53 @@
       (e.metaKey && e.altKey && k === 'i');
     if (blocked){ e.preventDefault(); toast('This action is disabled during the exam.'); }
   });
+  /* ============ PROCTORING VIOLATIONS ============
+     A single shared counter (state.tabSwitches) backs THREE different
+     signals: switching tabs/apps (visibilitychange), exiting fullscreen
+     (fullscreenchange), and — on platforms where the same user action
+     fires both at once (e.g. Alt-Tab while in fullscreen on Windows) —
+     a short debounce window stops that single action being counted
+     twice. MAX_TAB_SWITCHES is the shared limit across all of them. */
+  function tallyViolation(showToastNow){
+    if (!quizScreen || quizScreen.classList.contains('hidden') || state.submitted) return;
+    const now = Date.now();
+    if (now - (state.lastViolationAt || 0) < 1000) return; // same physical action, already counted
+    state.lastViolationAt = now;
+    state.tabSwitches++;
+    if (state.tabSwitches >= MAX_TAB_SWITCHES){
+      doSubmit('tabSwitch');
+      return;
+    }
+    const remaining = MAX_TAB_SWITCHES - state.tabSwitches;
+    const msg = `Tab/fullscreen switch detected (${state.tabSwitches}/${MAX_TAB_SWITCHES}). ${remaining} more and your exam will be auto-submitted.`;
+    if (showToastNow) toast(msg);
+    else state.pendingViolationToast = msg; // shown when the tab becomes visible again
+  }
+
   document.addEventListener('visibilitychange', () => {
     if (!quizScreen || quizScreen.classList.contains('hidden') || state.submitted) return;
     if (document.hidden){
-      state.tabSwitches++;
-      if (state.tabSwitches >= MAX_TAB_SWITCHES) doSubmit('tabSwitch');
-    } else if (state.tabSwitches > 0 && state.tabSwitches < MAX_TAB_SWITCHES){
-      const remaining = MAX_TAB_SWITCHES - state.tabSwitches;
-      toast(`Tab switch detected (${state.tabSwitches}/${MAX_TAB_SWITCHES}). ${remaining} more and your exam will be auto-submitted.`);
+      tallyViolation(false);
+    } else if (state.pendingViolationToast){
+      toast(state.pendingViolationToast);
+      state.pendingViolationToast = null;
     }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    if (!quizScreen || quizScreen.classList.contains('hidden') || state.submitted) return;
+    if (!document.fullscreenElement){
+      tallyViolation(true); // page is still visible when this fires, so warn immediately
+    }
+  });
+
+  // Native "are you sure you want to leave?" prompt — a deterrent, not a
+  // hard block (the student can still confirm and leave), but it stops
+  // an accidental tab close/refresh and makes a deliberate one explicit.
+  window.addEventListener('beforeunload', e => {
+    if (!quizScreen || quizScreen.classList.contains('hidden') || state.submitted) return;
+    e.preventDefault();
+    e.returnValue = '';
   });
 
   /* ============ WATERMARK ============ */
@@ -562,11 +602,24 @@
     quizScreen.classList.remove('hidden');
     el('header-roll').textContent = state.name + ' · ' + state.roll;
     applyWatermark(state.roll);
+    requestExamFullscreen();
     buildOptionOrder();
     buildOmr();
     state.startedAt = Date.now();
     renderQuestion(0);
     state.timerHandle = setInterval(tick, 1000);
+  }
+
+  // Best-effort fullscreen — silently does nothing where unsupported
+  // (e.g. iOS Safari) or if the browser declines the request. Must be
+  // called synchronously from a user gesture (click/Enter), which it is.
+  function requestExamFullscreen(){
+    const root = document.documentElement;
+    if (root.requestFullscreen){
+      root.requestFullscreen().catch(() => {});
+    } else if (root.webkitRequestFullscreen){
+      root.webkitRequestFullscreen();
+    }
   }
 
   /* ============ TIMER ============ */
@@ -688,6 +741,7 @@
     state.submitted = true;
     clearInterval(state.timerHandle);
     el('confirm-overlay').classList.add('hidden');
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     if (reason === 'timeout') toast('Time is up — your exam has been auto-submitted.');
     if (reason === 'tabSwitch') toast(`Tab-switch limit (${MAX_TAB_SWITCHES}) reached — your exam has been auto-submitted.`);
 
